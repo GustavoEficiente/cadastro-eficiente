@@ -1,0 +1,76 @@
+{% extends 'base.html' %}
+{% load core_extras %}
+
+{% block content %}
+<div class="card">
+    <h2>{% if modo_edicao %}Editar Cadastro{% else %}Novo Cadastro{% endif %}</h2>
+
+    <form method="post">
+        {% csrf_token %}
+
+        <h3>Dados básicos</h3>
+
+        <label>Cidade</label>
+        {{ form.cidade }}
+
+        <label>Tipo de coordenada</label>
+        {{ form.tipo_coordenada }}
+
+        <label>Latitude</label>
+        {{ form.latitude }}
+
+        <label>Longitude</label>
+        {{ form.longitude }}
+
+        <label>Coordenada texto</label>
+        {{ form.coordenada_texto }}
+
+        <hr>
+
+        <h3>Dados do Censo</h3>
+
+        {% for campo in campos_dinamicos %}
+            <label>{{ campo.rotulo }}</label>
+
+            {% with valor=dados_extras_existentes|get_item:campo.nome_interno %}
+                {% if campo.tipo_campo == 'texto' %}
+                    <input type="text" name="{{ campo.nome_interno }}" class="form-control" value="{{ valor|default:'' }}">
+
+                {% elif campo.tipo_campo == 'numero' %}
+                    <input type="number" step="any" name="{{ campo.nome_interno }}" class="form-control" value="{{ valor|default:'' }}">
+
+                {% elif campo.tipo_campo == 'textarea' %}
+                    <textarea name="{{ campo.nome_interno }}" class="form-control">{{ valor|default:'' }}</textarea>
+
+                {% elif campo.tipo_campo == 'booleano' %}
+                    <select name="{{ campo.nome_interno }}" class="form-control">
+                        <option value="">Selecione</option>
+                        <option value="sim" {% if valor == 'Sim' %}selected{% endif %}>Sim</option>
+                        <option value="nao" {% if valor == 'Não' %}selected{% endif %}>Não</option>
+                    </select>
+
+                {% elif campo.tipo_campo == 'lista' %}
+                    <select name="{{ campo.nome_interno }}" class="form-control">
+                        <option value="">Selecione</option>
+                        {% for op in campo.opcoes.all %}
+                            {% if op.ativo %}
+                                <option value="{{ op.valor }}" {% if valor == op.valor %}selected{% endif %}>{{ op.valor }}</option>
+                            {% endif %}
+                        {% endfor %}
+                    </select>
+
+                {% elif campo.tipo_campo == 'data' %}
+                    <input type="date" name="{{ campo.nome_interno }}" class="form-control" value="{{ valor|default:'' }}">
+
+                {% elif campo.tipo_campo == 'hora' %}
+                    <input type="time" name="{{ campo.nome_interno }}" class="form-control" value="{{ valor|default:'' }}">
+                {% endif %}
+            {% endwith %}
+        {% endfor %}
+
+        <button class="btn" type="submit">
+            {% if modo_edicao %}Atualizar Cadastro{% else %}Salvar Cadastro{% endif %}
+        </button>
+    </form>
+</div>
+{% endblock %}

@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="card">
+    <h2>Dashboard</h2>
+    <p><strong>Total de cadastros:</strong> {{ total_cadastros }}</p>
+    <p><strong>Total pendentes:</strong> {{ total_pendentes }}</p>
+    <p><strong>Meus cadastros:</strong> {{ total_usuario }}</p>
+</div>
+
+<div class="card">
+    <a class="btn" href="{% url 'core:novo_cadastro' %}">Novo Cadastro</a>
+    <a class="btn" href="{% url 'core:lista_cadastros' %}">Ver Cadastros</a>
+</div>
+{% endblock %}

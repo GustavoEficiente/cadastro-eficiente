@@ -1,0 +1,7 @@
+Django==6.0.3
+djangorestframework
+openpyxl
+reportlab
+simplekml
+gunicorn
+whitenoise

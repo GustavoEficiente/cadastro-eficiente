@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cadastro Eficiente</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #0B1F3A;
+            color: white;
+        }
+        .topbar {
+            background: #123A6D;
+            padding: 16px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .menu {
+            background: #102b4f;
+            padding: 12px 24px;
+        }
+        .menu a {
+            color: white;
+            text-decoration: none;
+            margin-right: 20px;
+            font-weight: bold;
+        }
+        .container {
+            padding: 24px;
+        }
+        .card {
+            background: white;
+            color: #0B1F3A;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+        }
+        .btn {
+            background: #1E5AA8;
+            color: white;
+            border: none;
+            padding: 10px 18px;
+            border-radius: 8px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .form-control {
+            width: 100%;
+            padding: 10px;
+            margin-top: 6px;
+            margin-bottom: 16px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            box-sizing: border-box;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            color: #0B1F3A;
+        }
+        table th, table td {
+            padding: 12px;
+            border-bottom: 1px solid #ddd;
+            text-align: left;
+        }
+        .mensagem {
+            background: #d4edda;
+            color: #155724;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+        }
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <div><strong>Cadastro Eficiente</strong></div>
+        <div>
+            {% if request.user.is_authenticated %}
+                {{ request.user.username }} |
+                <a href="{% url 'logout' %}" style="color:white;">Sair</a>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if request.user.is_authenticated %}
+    <div class="menu">
+        <a href="{% url 'core:dashboard' %}">Dashboard</a>
+        <a href="{% url 'core:novo_cadastro' %}">Novo Cadastro</a>
+        <a href="{% url 'core:lista_cadastros' %}">Cadastros</a>
+        <a href="/admin/">Admin</a>
+    </div>
+    {% endif %}
+
+    <div class="container">
+        {% if messages %}
+            {% for message in messages %}
+                <div class="mensagem">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+        {% block content %}{% endblock %}
+    </div>
+</body>
+</html>
