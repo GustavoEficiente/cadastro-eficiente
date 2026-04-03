@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Cadastro Eficiente</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #08244d;
+            color: #ffffff;
+        }
+        .topbar {
+            background: #143d77;
+            padding: 16px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: bold;
+        }
+        .menu {
+            background: #0d2e5f;
+            padding: 14px 16px;
+        }
+        .menu a {
+            color: white;
+            text-decoration: none;
+            margin-right: 24px;
+            font-weight: bold;
+        }
+        .container {
+            padding: 24px 16px 40px;
+        }
+        .card {
+            background: #f4f4f4;
+            color: #08244d;
+            border-radius: 18px;
+            padding: 26px;
+            margin-bottom: 24px;
+        }
+        .btn {
+            display: inline-block;
+            background: #2a66b7;
+            color: white;
+            text-decoration: none;
+            padding: 14px 22px;
+            border-radius: 12px;
+            font-weight: bold;
+            margin-right: 12px;
+            margin-bottom: 12px;
+        }
+        .btn-verde {
+            background: #2d8a4b;
+        }
+        .btn-vermelho {
+            background: #a64141;
+        }
+        .btn-cinza {
+            background: #67768b;
+        }
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <div>Cadastro Eficiente</div>
+        <div>
+            {{ request.user.username|upper }} |
+            <a href="/logout/" style="color:white;text-decoration:none;">Sair</a>
+        </div>
+    </div>
+
+    <div class="menu">
+        <a href="/">Dashboard</a>
+        <a href="/cadastros/novo/">Novo Cadastro</a>
+        <a href="/cadastros/">Cadastros</a>
+        <a href="/admin/">Admin</a>
+    </div>
+
+    <div class="container">
+        <div class="card">
+            <h1>Dashboard</h1>
+            <p><strong>Total de cadastros:</strong> {{ total_cadastros }}</p>
+            <p><strong>Total pendentes:</strong> {{ pendentes }}</p>
+            <p><strong>Total sincronizados:</strong> {{ sincronizados }}</p>
+            <p><strong>Campos ativos:</strong> {{ campos_ativos }}</p>
+        </div>
+
+        <div class="card">
+            <a class="btn" href="/cadastros/novo/">Novo Cadastro</a>
+            <a class="btn" href="/cadastros/">Ver Cadastros</a>
+            <a class="btn btn-verde" href="/exportar/csv/">Exportar CSV</a>
+            <a class="btn btn-verde" href="/exportar/excel/">Exportar Excel</a>
+            <a class="btn btn-vermelho" href="/exportar/pdf/">Exportar PDF</a>
+            <a class="btn btn-cinza" href="/exportar/kml/">Exportar KML</a>
+        </div>
+    </div>
+</body>
+</html>

@@ -5,7 +5,7 @@
 <div class="card">
     <h2>{% if modo_edicao %}Editar Cadastro{% else %}Novo Cadastro{% endif %}</h2>
 
-    <form method="post">
+    <form method="post" enctype="multipart/form-data">
         {% csrf_token %}
 
         <h3>Dados básicos</h3>
@@ -67,6 +67,35 @@
                 {% endif %}
             {% endwith %}
         {% endfor %}
+
+        <hr>
+        <h3>Fotos do ponto (até 5)</h3>
+
+        <label>Foto 1</label>
+        <input type="file" name="foto_1" class="form-control" accept="image/*">
+
+        <label>Foto 2</label>
+        <input type="file" name="foto_2" class="form-control" accept="image/*">
+
+        <label>Foto 3</label>
+        <input type="file" name="foto_3" class="form-control" accept="image/*">
+
+        <label>Foto 4</label>
+        <input type="file" name="foto_4" class="form-control" accept="image/*">
+
+        <label>Foto 5</label>
+        <input type="file" name="foto_5" class="form-control" accept="image/*">
+
+        {% if modo_edicao and cadastro and cadastro.fotos.all %}
+            <hr>
+            <h3>Fotos já cadastradas</h3>
+            {% for foto in cadastro.fotos.all %}
+                <p>
+                    <strong>Foto {{ foto.ordem }}</strong> -
+                    <a href="{{ foto.imagem.url }}" target="_blank">Abrir</a>
+                </p>
+            {% endfor %}
+        {% endif %}
 
         <button class="btn" type="submit">
             {% if modo_edicao %}Atualizar Cadastro{% else %}Salvar Cadastro{% endif %}

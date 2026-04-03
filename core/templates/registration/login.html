@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Cadastro Eficiente</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #071f45;
+            color: #ffffff;
+        }
+        .container {
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .card {
+            background: #ffffff;
+            color: #0b1f3a;
+            width: 100%;
+            max-width: 420px;
+            padding: 32px;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+        }
+        h1 {
+            margin-top: 0;
+            text-align: center;
+            color: #0b1f3a;
+        }
+        .subtitle {
+            text-align: center;
+            margin-bottom: 24px;
+            color: #355070;
+        }
+        label {
+            display: block;
+            margin-bottom: 6px;
+            margin-top: 14px;
+            font-weight: bold;
+        }
+        input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #cfd8e3;
+            border-radius: 10px;
+            box-sizing: border-box;
+        }
+        button {
+            width: 100%;
+            margin-top: 22px;
+            padding: 14px;
+            border: none;
+            border-radius: 10px;
+            background: #1e5aa8;
+            color: white;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .erro {
+            background: #ffe0e0;
+            color: #8a1f1f;
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+        .brand {
+            text-align: center;
+            font-size: 28px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .brand span {
+            color: #5fa8ff;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <div class="brand">Cadastro <span>Eficiente</span></div>
+            <p class="subtitle">Acesse o sistema com seu usuário e senha</p>
+
+            {% if form.errors %}
+                <div class="erro">
+                    Usuário ou senha inválidos.
+                </div>
+            {% endif %}
+
+            <form method="post">
+                {% csrf_token %}
+
+                <label for="id_username">Usuário</label>
+                <input type="text" name="username" id="id_username" required>
+
+                <label for="id_password">Senha</label>
+                <input type="password" name="password" id="id_password" required>
+
+                <button type="submit">Entrar</button>
+            </form>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cadastros - Cadastro Eficiente</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #08244d;
+            color: #ffffff;
+        }
+        .topbar {
+            background: #143d77;
+            padding: 16px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: bold;
+        }
+        .menu {
+            background: #0d2e5f;
+            padding: 14px 16px;
+        }
+        .menu a {
+            color: white;
+            text-decoration: none;
+            margin-right: 24px;
+            font-weight: bold;
+        }
+        .container {
+            padding: 24px 16px 40px;
+        }
+        .card {
+            background: #f4f4f4;
+            color: #08244d;
+            border-radius: 18px;
+            padding: 26px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        th, td {
+            padding: 12px;
+            border-bottom: 1px solid #d7dfeb;
+            text-align: left;
+        }
+        th {
+            background: #143d77;
+            color: white;
+        }
+        .btn {
+            display: inline-block;
+            background: #2a66b7;
+            color: white;
+            text-decoration: none;
+            padding: 12px 18px;
+            border-radius: 10px;
+            font-weight: bold;
+            margin-bottom: 16px;
+            margin-right: 10px;
+        }
+        .acao {
+            color: #1e5aa8;
+            text-decoration: none;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <div>Cadastro Eficiente</div>
+        <div>
+            {{ request.user.username|upper }} |
+            <a href="/logout/" style="color:white;text-decoration:none;">Sair</a>
+        </div>
+    </div>
+
+    <div class="menu">
+        <a href="/">Dashboard</a>
+        <a href="/cadastros/novo/">Novo Cadastro</a>
+        <a href="/cadastros/">Cadastros</a>
+        <a href="/admin/">Admin</a>
+    </div>
+
+    <div class="container">
+        <div class="card">
+            <h1>Lista de Cadastros</h1>
+
+            <a class="btn" href="/cadastros/novo/">Novo Cadastro</a>
+            <a class="btn" href="/exportar/csv/">CSV</a>
+            <a class="btn" href="/exportar/excel/">Excel</a>
+            <a class="btn" href="/exportar/pdf/">PDF</a>
+            <a class="btn" href="/exportar/kml/">KML</a>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID Ponto</th>
+                        <th>Cadastrador</th>
+                        <th>Data</th>
+                        <th>Hora</th>
+                        <th>Latitude</th>
+                        <th>Longitude</th>
+                        <th>Status</th>
+                        <th>Ação</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for cadastro in cadastros %}
+                    <tr>
+                        <td>{{ cadastro.id_ponto }}</td>
+                        <td>{{ cadastro.nome_cadastrador }}</td>
+                        <td>{{ cadastro.data_cadastro }}</td>
+                        <td>{{ cadastro.hora_cadastro }}</td>
+                        <td>{{ cadastro.latitude }}</td>
+                        <td>{{ cadastro.longitude }}</td>
+                        <td>{{ cadastro.status_sincronizacao }}</td>
+                        <td>
+                            <a class="acao" href="/cadastros/{{ cadastro.id }}/editar/">Editar</a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="8">Nenhum cadastro encontrado.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</body>
+</html>

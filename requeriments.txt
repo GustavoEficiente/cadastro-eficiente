@@ -1,7 +1,11 @@
-Django==6.0.3
+Django>=5,<7
 djangorestframework
+pandas
 openpyxl
 reportlab
 simplekml
+pillow
 gunicorn
 whitenoise
+psycopg[binary]
+dj-database-url
