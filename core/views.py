@@ -1,6 +1,5 @@
 import csv
 import io
-import json
 import uuid
 from datetime import datetime
 
@@ -17,7 +16,7 @@ from reportlab.lib.pagesizes import A4, landscape
 from reportlab.pdfgen import canvas
 
 from .forms import CadastroForm
-from .models import Cadastro, CampoFormulario
+from .models import Cadastro, CampoFormulario, FotoCadastro
 
 
 def gerar_id_ponto():
@@ -27,7 +26,12 @@ def gerar_id_ponto():
 
 
 def obter_campos_dinamicos():
-    return CampoFormulario.objects.filter(ativo=True).order_by("ordem", "id")
+    return (
+        CampoFormulario.objects
+        .filter(ativo=True)
+        .order_by("ordem", "id")
+        .prefetch_related("opcoes")
+    )
 
 
 @login_required
@@ -57,7 +61,7 @@ def novo_cadastro(request):
     campos_dinamicos = obter_campos_dinamicos()
 
     if request.method == "POST":
-        form = CadastroForm(request.POST)
+        form = CadastroForm(request.POST, request.FILES)
 
         if form.is_valid():
             cadastro = form.save(commit=False)
@@ -72,15 +76,30 @@ def novo_cadastro(request):
             dados_extras = {}
 
             for campo in campos_dinamicos:
-                valor = request.POST.get(campo.nome_interno, "")
-
                 if campo.tipo_campo == "booleano":
                     valor = request.POST.get(campo.nome_interno) == "on"
+                else:
+                    valor = request.POST.get(campo.nome_interno, "")
 
                 dados_extras[campo.nome_interno] = valor
 
             cadastro.dados_extras = dados_extras
             cadastro.save()
+
+            fotos = [
+                form.cleaned_data.get("foto_1"),
+                form.cleaned_data.get("foto_2"),
+                form.cleaned_data.get("foto_3"),
+                form.cleaned_data.get("foto_4"),
+                form.cleaned_data.get("foto_5"),
+            ]
+
+            for foto in fotos:
+                if foto:
+                    FotoCadastro.objects.create(
+                        cadastro=cadastro,
+                        foto=foto
+                    )
 
             messages.success(request, "Cadastro criado com sucesso.")
             return redirect("core:lista_cadastros")
@@ -111,23 +130,47 @@ def editar_cadastro(request, pk):
     campos_dinamicos = obter_campos_dinamicos()
 
     if request.method == "POST":
-        form = CadastroForm(request.POST, instance=cadastro)
+        form = CadastroForm(request.POST, request.FILES, instance=cadastro)
 
         if form.is_valid():
             cadastro = form.save(commit=False)
 
-            dados_extras = cadastro.dados_extras or {}
+            dados_extras = {}
 
             for campo in campos_dinamicos:
-                valor = request.POST.get(campo.nome_interno, "")
-
                 if campo.tipo_campo == "booleano":
                     valor = request.POST.get(campo.nome_interno) == "on"
+                else:
+                    valor = request.POST.get(campo.nome_interno, "")
 
                 dados_extras[campo.nome_interno] = valor
 
             cadastro.dados_extras = dados_extras
             cadastro.save()
+
+            vagas_restantes = max(0, 5 - cadastro.fotos.count())
+
+            novas_fotos = [
+                form.cleaned_data.get("foto_1"),
+                form.cleaned_data.get("foto_2"),
+                form.cleaned_data.get("foto_3"),
+                form.cleaned_data.get("foto_4"),
+                form.cleaned_data.get("foto_5"),
+            ]
+
+            fotos_para_salvar = [foto for foto in novas_fotos if foto][:vagas_restantes]
+
+            for foto in fotos_para_salvar:
+                FotoCadastro.objects.create(
+                    cadastro=cadastro,
+                    foto=foto
+                )
+
+            if len([foto for foto in novas_fotos if foto]) > vagas_restantes:
+                messages.warning(
+                    request,
+                    "Algumas fotos não foram adicionadas porque o limite é de 5 fotos por cadastro."
+                )
 
             messages.success(request, "Cadastro atualizado com sucesso.")
             return redirect("core:lista_cadastros")
@@ -147,9 +190,9 @@ def editar_cadastro(request, pk):
     )
 
 
-def montar_linhas_exportacao():
+def montar_linhas_exportacao(request):
     campos_dinamicos = list(obter_campos_dinamicos())
-    cadastros = Cadastro.objects.all().order_by("-criado_em")
+    cadastros = Cadastro.objects.all().order_by("-criado_em").prefetch_related("fotos")
 
     linhas = []
 
@@ -162,7 +205,19 @@ def montar_linhas_exportacao():
             "latitude": cadastro.latitude,
             "longitude": cadastro.longitude,
             "status_sincronizacao": cadastro.status_sincronizacao,
+            "total_fotos": cadastro.fotos.count(),
         }
+
+        fotos = list(cadastro.fotos.all())
+
+        for i in range(1, 6):
+            if len(fotos) >= i:
+                try:
+                    linha[f"foto_{i}"] = request.build_absolute_uri(fotos[i - 1].foto.url)
+                except Exception:
+                    linha[f"foto_{i}"] = ""
+            else:
+                linha[f"foto_{i}"] = ""
 
         dados_extras = cadastro.dados_extras or {}
 
@@ -176,7 +231,7 @@ def montar_linhas_exportacao():
 
 @login_required
 def exportar_csv(request):
-    linhas = montar_linhas_exportacao()
+    linhas = montar_linhas_exportacao(request)
 
     response = HttpResponse(content_type="text/csv; charset=utf-8")
     response["Content-Disposition"] = 'attachment; filename="cadastros.csv"'
@@ -194,7 +249,7 @@ def exportar_csv(request):
 
 @login_required
 def exportar_excel(request):
-    linhas = montar_linhas_exportacao()
+    linhas = montar_linhas_exportacao(request)
 
     df = pd.DataFrame(linhas)
 
@@ -211,7 +266,7 @@ def exportar_excel(request):
 
 @login_required
 def exportar_pdf(request):
-    linhas = montar_linhas_exportacao()
+    linhas = montar_linhas_exportacao(request)
 
     response = HttpResponse(content_type="application/pdf")
     response["Content-Disposition"] = 'attachment; filename="cadastros.pdf"'
@@ -256,7 +311,12 @@ def exportar_pdf(request):
 
 @login_required
 def exportar_kml(request):
-    cadastros = Cadastro.objects.exclude(latitude__isnull=True).exclude(longitude__isnull=True)
+    cadastros = (
+        Cadastro.objects
+        .exclude(latitude__isnull=True)
+        .exclude(longitude__isnull=True)
+        .prefetch_related("fotos")
+    )
 
     kml = simplekml.Kml()
 
@@ -267,7 +327,18 @@ def exportar_kml(request):
             f"Data: {cadastro.data_cadastro}",
             f"Hora: {cadastro.hora_cadastro}",
             f"Status: {cadastro.status_sincronizacao}",
+            f"Total de fotos: {cadastro.fotos.count()}",
         ]
+
+        fotos = list(cadastro.fotos.all())
+        for i in range(1, 6):
+            if len(fotos) >= i:
+                try:
+                    descricao.append(
+                        f"Foto {i}: {request.build_absolute_uri(fotos[i - 1].foto.url)}"
+                    )
+                except Exception:
+                    pass
 
         if cadastro.dados_extras:
             for chave, valor in cadastro.dados_extras.items():

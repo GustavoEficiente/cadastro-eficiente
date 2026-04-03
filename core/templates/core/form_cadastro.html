@@ -1,227 +1,165 @@
+{% extends "core/base.html" %}
 {% load core_extras %}
-<!DOCTYPE html>
-<html lang="pt-br">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ titulo }} - Cadastro Eficiente</title>
-    <style>
-        body {
-            margin: 0;
-            font-family: Arial, sans-serif;
-            background: #08244d;
-            color: #ffffff;
-        }
-        .topbar {
-            background: #143d77;
-            padding: 16px 24px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-weight: bold;
-        }
-        .menu {
-            background: #0d2e5f;
-            padding: 14px 16px;
-        }
-        .menu a {
-            color: white;
-            text-decoration: none;
-            margin-right: 24px;
-            font-weight: bold;
-        }
-        .container {
-            padding: 24px 16px 40px;
-        }
-        .card {
-            background: #f4f4f4;
-            color: #08244d;
-            border-radius: 18px;
-            padding: 26px;
-            max-width: 1000px;
-            margin: 0 auto;
-        }
-        h1 {
-            margin-top: 0;
-        }
-        .grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 16px;
-        }
-        .campo {
-            display: flex;
-            flex-direction: column;
-        }
-        .campo-full {
-            grid-column: 1 / -1;
-        }
-        label {
-            margin-bottom: 6px;
-            font-weight: bold;
-        }
-        input, select, textarea {
-            padding: 12px;
-            border: 1px solid #c7d2e2;
-            border-radius: 10px;
-            font-size: 14px;
-        }
-        .acoes {
-            margin-top: 24px;
-        }
-        .btn {
-            display: inline-block;
-            background: #2a66b7;
-            color: white;
-            text-decoration: none;
-            padding: 14px 20px;
-            border-radius: 12px;
-            font-weight: bold;
-            border: none;
-            cursor: pointer;
-            margin-right: 10px;
-        }
-        .btn-sec {
-            background: #6b7a90;
-        }
-        .erro {
-            background: #ffe0e0;
-            color: #8a1f1f;
-            padding: 12px;
-            border-radius: 10px;
-            margin-bottom: 16px;
-        }
-        .info-id {
-            background: #dce8f8;
-            color: #0b2f66;
-            padding: 10px 14px;
-            border-radius: 10px;
-            margin-bottom: 16px;
-            font-weight: bold;
-        }
-        @media (max-width: 768px) {
-            .grid {
-                grid-template-columns: 1fr;
-            }
-        }
-    </style>
-</head>
-<body>
-    <div class="topbar">
-        <div>Cadastro Eficiente</div>
-        <div>
-            {{ request.user.username|upper }} |
-            <a href="/logout/" style="color:white;text-decoration:none;">Sair</a>
+
+{% block content %}
+<div class="container" style="max-width: 1100px; margin: 30px auto; background: #e9e9e9; padding: 32px; border-radius: 24px;">
+    <h1 style="font-size: 56px; margin-bottom: 20px; color: #0a2f66;">
+        {{ titulo }}
+    </h1>
+
+    <div style="background: #dbe7f7; color: #0a2f66; padding: 14px 18px; border-radius: 14px; margin-bottom: 28px; font-weight: 700;">
+        O ID do ponto será gerado automaticamente ao salvar.
+    </div>
+
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+
+        <div class="form-grid" style="display:grid; grid-template-columns: 1fr 1fr; gap:22px;">
+            <div class="form-group">
+                <label for="{{ form.nome_cadastrador.id_for_label }}">Nome do cadastrador</label>
+                {{ form.nome_cadastrador }}
+            </div>
+
+            <div class="form-group">
+                <label for="{{ form.status_sincronizacao.id_for_label }}">Status de sincronização</label>
+                {{ form.status_sincronizacao }}
+            </div>
+
+            <div class="form-group">
+                <label for="{{ form.data_cadastro.id_for_label }}">Data do cadastro</label>
+                {{ form.data_cadastro }}
+            </div>
+
+            <div class="form-group">
+                <label for="{{ form.hora_cadastro.id_for_label }}">Hora do cadastro</label>
+                {{ form.hora_cadastro }}
+            </div>
+
+            <div class="form-group">
+                <label for="{{ form.latitude.id_for_label }}">Latitude</label>
+                {{ form.latitude }}
+            </div>
+
+            <div class="form-group">
+                <label for="{{ form.longitude.id_for_label }}">Longitude</label>
+                {{ form.longitude }}
+            </div>
+
+            {% for campo in campos_dinamicos %}
+                <div class="form-group">
+                    <label for="{{ campo.nome_interno }}">{{ campo.rotulo }}</label>
+
+                    {% if campo.tipo_campo == "textarea" %}
+                        <textarea
+                            name="{{ campo.nome_interno }}"
+                            id="{{ campo.nome_interno }}"
+                            class="form-control"
+                            rows="3"
+                        >{% if cadastro %}{{ cadastro.dados_extras|get_item:campo.nome_interno }}{% endif %}</textarea>
+
+                    {% elif campo.tipo_campo == "booleano" %}
+                        <input
+                            type="checkbox"
+                            name="{{ campo.nome_interno }}"
+                            id="{{ campo.nome_interno }}"
+                            class="form-check-input"
+                            {% if cadastro and cadastro.dados_extras|get_item:campo.nome_interno %}checked{% endif %}
+                        >
+
+                    {% elif campo.tipo_campo == "lista" %}
+                        <select name="{{ campo.nome_interno }}" id="{{ campo.nome_interno }}" class="form-control">
+                            <option value="">Selecione</option>
+                            {% for opcao in campo.opcoes.all %}
+                                <option value="{{ opcao.valor }}"
+                                    {% if cadastro and cadastro.dados_extras|get_item:campo.nome_interno == opcao.valor %}selected{% endif %}>
+                                    {{ opcao.valor }}
+                                </option>
+                            {% endfor %}
+                        </select>
+
+                    {% elif campo.tipo_campo == "data" %}
+                        <input
+                            type="date"
+                            name="{{ campo.nome_interno }}"
+                            id="{{ campo.nome_interno }}"
+                            class="form-control"
+                            value="{% if cadastro %}{{ cadastro.dados_extras|get_item:campo.nome_interno }}{% endif %}"
+                        >
+
+                    {% elif campo.tipo_campo == "hora" %}
+                        <input
+                            type="time"
+                            name="{{ campo.nome_interno }}"
+                            id="{{ campo.nome_interno }}"
+                            class="form-control"
+                            value="{% if cadastro %}{{ cadastro.dados_extras|get_item:campo.nome_interno }}{% endif %}"
+                        >
+
+                    {% elif campo.tipo_campo == "numero" %}
+                        <input
+                            type="number"
+                            step="any"
+                            name="{{ campo.nome_interno }}"
+                            id="{{ campo.nome_interno }}"
+                            class="form-control"
+                            value="{% if cadastro %}{{ cadastro.dados_extras|get_item:campo.nome_interno }}{% endif %}"
+                        >
+
+                    {% else %}
+                        <input
+                            type="text"
+                            name="{{ campo.nome_interno }}"
+                            id="{{ campo.nome_interno }}"
+                            class="form-control"
+                            value="{% if cadastro %}{{ cadastro.dados_extras|get_item:campo.nome_interno }}{% endif %}"
+                            placeholder="{{ campo.placeholder }}"
+                        >
+                    {% endif %}
+                </div>
+            {% endfor %}
         </div>
-    </div>
 
-    <div class="menu">
-        <a href="/">Dashboard</a>
-        <a href="/cadastros/novo/">Novo Cadastro</a>
-        <a href="/cadastros/">Cadastros</a>
-        <a href="/admin/">Admin</a>
-    </div>
+        <div style="margin-top: 30px; padding-top: 18px; border-top: 1px solid #cfd6e4;">
+            <label style="display:block; font-weight:700; font-size:22px; color:#0a2f66; margin-bottom:10px;">
+                Fotos do ponto
+            </label>
+            <p style="margin-top:0; margin-bottom:16px; color:#4b5b74;">
+                Você pode adicionar até 5 fotos para este cadastro.
+            </p>
 
-    <div class="container">
-        <div class="card">
-            <h1>{{ titulo }}</h1>
-
-            {% if not modo_edicao %}
-                <div class="info-id">
-                    O ID do ponto será gerado automaticamente ao salvar.
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:18px;">
+                <div>
+                    <label for="{{ form.foto_1.id_for_label }}">Foto 1</label>
+                    {{ form.foto_1 }}
                 </div>
-            {% endif %}
-
-            {% if form.errors %}
-                <div class="erro">
-                    Verifica os campos abaixo. Existe alguma informação inválida ou faltando.
+                <div>
+                    <label for="{{ form.foto_2.id_for_label }}">Foto 2</label>
+                    {{ form.foto_2 }}
                 </div>
-            {% endif %}
-
-            <form method="post">
-                {% csrf_token %}
-
-                <div class="grid">
-                    <div class="campo">
-                        <label for="{{ form.nome_cadastrador.id_for_label }}">Nome do cadastrador</label>
-                        {{ form.nome_cadastrador }}
-                    </div>
-
-                    <div class="campo">
-                        <label for="{{ form.status_sincronizacao.id_for_label }}">Status de sincronização</label>
-                        {{ form.status_sincronizacao }}
-                    </div>
-
-                    <div class="campo">
-                        <label for="{{ form.data_cadastro.id_for_label }}">Data do cadastro</label>
-                        {{ form.data_cadastro }}
-                    </div>
-
-                    <div class="campo">
-                        <label for="{{ form.hora_cadastro.id_for_label }}">Hora do cadastro</label>
-                        {{ form.hora_cadastro }}
-                    </div>
-
-                    <div class="campo">
-                        <label for="{{ form.latitude.id_for_label }}">Latitude</label>
-                        {{ form.latitude }}
-                    </div>
-
-                    <div class="campo">
-                        <label for="{{ form.longitude.id_for_label }}">Longitude</label>
-                        {{ form.longitude }}
-                    </div>
-
-                    {% for campo in campos_dinamicos %}
-                        <div class="campo {% if campo.tipo_campo == 'textarea' %}campo-full{% endif %}">
-                            <label for="{{ campo.nome_interno }}">{{ campo.rotulo }}</label>
-
-                            {% if campo.tipo_campo == "lista" %}
-                                <select name="{{ campo.nome_interno }}" id="{{ campo.nome_interno }}">
-                                    <option value="">Selecione</option>
-                                    {% for opcao in campo.opcoes.all %}
-                                        {% if opcao.ativo %}
-                                            <option value="{{ opcao.valor }}"
-                                                {% if cadastro and cadastro.dados_extras and cadastro.dados_extras|get_item:campo.nome_interno == opcao.valor %}selected{% endif %}>
-                                                {{ opcao.valor }}
-                                            </option>
-                                        {% endif %}
-                                    {% endfor %}
-                                </select>
-
-                            {% elif campo.tipo_campo == "textarea" %}
-                                <textarea name="{{ campo.nome_interno }}" id="{{ campo.nome_interno }}" rows="4">{% if cadastro and cadastro.dados_extras %}{{ cadastro.dados_extras|get_item:campo.nome_interno }}{% endif %}</textarea>
-
-                            {% elif campo.tipo_campo == "booleano" %}
-                                <input type="checkbox" name="{{ campo.nome_interno }}" id="{{ campo.nome_interno }}"
-                                    {% if cadastro and cadastro.dados_extras and cadastro.dados_extras|get_item:campo.nome_interno %}checked{% endif %}>
-
-                            {% elif campo.tipo_campo == "numero" %}
-                                <input type="number" step="any" name="{{ campo.nome_interno }}" id="{{ campo.nome_interno }}"
-                                    value="{% if cadastro and cadastro.dados_extras %}{{ cadastro.dados_extras|get_item:campo.nome_interno }}{% endif %}">
-
-                            {% elif campo.tipo_campo == "data" %}
-                                <input type="date" name="{{ campo.nome_interno }}" id="{{ campo.nome_interno }}"
-                                    value="{% if cadastro and cadastro.dados_extras %}{{ cadastro.dados_extras|get_item:campo.nome_interno }}{% endif %}">
-
-                            {% elif campo.tipo_campo == "hora" %}
-                                <input type="time" name="{{ campo.nome_interno }}" id="{{ campo.nome_interno }}"
-                                    value="{% if cadastro and cadastro.dados_extras %}{{ cadastro.dados_extras|get_item:campo.nome_interno }}{% endif %}">
-
-                            {% else %}
-                                <input type="text" name="{{ campo.nome_interno }}" id="{{ campo.nome_interno }}"
-                                    value="{% if cadastro and cadastro.dados_extras %}{{ cadastro.dados_extras|get_item:campo.nome_interno }}{% endif %}">
-                            {% endif %}
-                        </div>
-                    {% endfor %}
+                <div>
+                    <label for="{{ form.foto_3.id_for_label }}">Foto 3</label>
+                    {{ form.foto_3 }}
                 </div>
-
-                <div class="acoes">
-                    <button type="submit" class="btn">Salvar Cadastro</button>
-                    <a href="/cadastros/" class="btn btn-sec">Cancelar</a>
+                <div>
+                    <label for="{{ form.foto_4.id_for_label }}">Foto 4</label>
+                    {{ form.foto_4 }}
                 </div>
-            </form>
+                <div style="grid-column: 1 / -1;">
+                    <label for="{{ form.foto_5.id_for_label }}">Foto 5</label>
+                    {{ form.foto_5 }}
+                </div>
+            </div>
         </div>
-    </div>
-</body>
-</html>
+
+        <div style="margin-top: 36px; display:flex; gap:18px;">
+            <button type="submit" style="background:#2f69b7; color:white; border:none; padding:16px 28px; border-radius:16px; font-weight:700; font-size:16px; cursor:pointer;">
+                Salvar Cadastro
+            </button>
+
+            <a href="{% url 'core:lista_cadastros' %}" style="background:#7989a5; color:white; text-decoration:none; padding:16px 28px; border-radius:16px; font-weight:700; font-size:16px; display:inline-block;">
+                Cancelar
+            </a>
+        </div>
+    </form>
+</div>
+{% endblock %}

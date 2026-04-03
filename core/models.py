@@ -1,4 +1,5 @@
 from django.db import models
+from django.core.exceptions import ValidationError
 
 
 class Cadastro(models.Model):
@@ -30,6 +31,10 @@ class Cadastro(models.Model):
 
     def __str__(self):
         return self.id_ponto
+
+    @property
+    def total_fotos(self):
+        return self.fotos.count()
 
 
 class CampoFormulario(models.Model):
@@ -96,3 +101,13 @@ class FotoCadastro(models.Model):
 
     def __str__(self):
         return f"Foto - {self.cadastro.id_ponto}"
+
+    def clean(self):
+        if self.cadastro_id:
+            total = FotoCadastro.objects.filter(cadastro=self.cadastro).exclude(pk=self.pk).count()
+            if total >= 5:
+                raise ValidationError("Este cadastro já possui 5 fotos. Não é permitido adicionar mais.")
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)

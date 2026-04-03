@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cadastro Eficiente</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: Arial, Helvetica, sans-serif;
+            background: #082b61;
+            color: #0a2f66;
+        }
+
+        .topbar {
+            background: #1a4a8a;
+            color: white;
+            padding: 18px 28px;
+            font-size: 20px;
+            font-weight: 700;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .navbar {
+            background: #12386f;
+            padding: 16px 28px;
+            display: flex;
+            gap: 36px;
+        }
+
+        .navbar a {
+            color: white;
+            text-decoration: none;
+            font-size: 18px;
+            font-weight: 700;
+        }
+
+        .navbar a:hover {
+            text-decoration: underline;
+        }
+
+        .page-wrap {
+            padding: 30px 20px;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 14px 16px;
+            border: 1px solid #b7c4d8;
+            border-radius: 16px;
+            font-size: 16px;
+            background: #fff;
+        }
+
+        textarea.form-control {
+            min-height: 90px;
+            resize: vertical;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 10px;
+            font-size: 18px;
+            font-weight: 700;
+            color: #0a2f66;
+        }
+
+        .messages {
+            max-width: 1100px;
+            margin: 0 auto 20px auto;
+        }
+
+        .message {
+            padding: 14px 18px;
+            border-radius: 12px;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+
+        .message.success {
+            background: #dff3e4;
+            color: #1c6b35;
+        }
+
+        .message.warning {
+            background: #fff4d6;
+            color: #8a6500;
+        }
+
+        .message.error {
+            background: #fde2e2;
+            color: #9f1d1d;
+        }
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <div>Cadastro Eficiente</div>
+        <div>
+            {% if request.user.is_authenticated %}
+                {{ request.user.username|upper }}
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="navbar">
+        <a href="{% url 'core:dashboard' %}">Dashboard</a>
+        <a href="{% url 'core:novo_cadastro' %}">Novo Cadastro</a>
+        <a href="{% url 'core:lista_cadastros' %}">Cadastros</a>
+        <a href="/admin/">Admin</a>
+    </div>
+
+    <div class="page-wrap">
+        {% if messages %}
+            <div class="messages">
+                {% for message in messages %}
+                    <div class="message {{ message.tags }}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        {% block content %}
+        {% endblock %}
+    </div>
+</body>
+</html>
