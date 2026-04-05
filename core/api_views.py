@@ -12,16 +12,26 @@ from .api import CampoSerializer, CadastroSerializer
 # =========================
 @api_view(['POST'])
 @permission_classes([AllowAny])
-def login_app(request):
-    usuario = request.data.get('usuario')
-    senha = request.data.get('senha')
+def criar_cadastro(request):
+    serializer = CadastroSerializer(data=request.data)
+
+    if serializer.is_valid():
+        cadastro = serializer.save(
+            status_sincronizacao=request.data.get('status_sincronizacao', 'Sincronizado')
+        )
+
+        return Response({
+            'ok': True,
+            'mensagem': 'Cadastro salvo com sucesso',
+            'id': cadastro.id,
+            'id_ponto': cadastro.id_ponto
+        }, status=status.HTTP_201_CREATED)
 
     return Response({
-        'ok': True,
-        'usuario': usuario,
-        'nome': usuario
-    })
-
+        'ok': False,
+        'mensagem': 'Erro ao salvar cadastro',
+        'erros': serializer.errors
+    }, status=status.HTTP_400_BAD_REQUEST)
 
 # =========================
 # LISTAR CAMPOS
