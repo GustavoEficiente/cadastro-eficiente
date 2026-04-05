@@ -22,10 +22,10 @@ services:
         value: "https://cadastro-eficiente.onrender.com"
       - key: MEDIA_ROOT
         value: "/var/data/media"
-    disks:
-      - name: media
-        mountPath: /var/data
-        sizeGB: 5
+    disk:
+      name: media
+      mountPath: /var/data
+      sizeGB: 5
 
 databases:
   - name: cadastro-eficiente-db
