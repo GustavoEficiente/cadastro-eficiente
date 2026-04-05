@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Cadastro Eficiente</string>
+    <string name="title_activity_main">Cadastro Eficiente</string>
+    <string name="package_name">com.eficiente.cadastro</string>
+    <string name="custom_url_scheme">com.eficiente.cadastro</string>
+</resources>

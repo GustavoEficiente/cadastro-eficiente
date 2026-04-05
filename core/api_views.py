@@ -1,120 +1,160 @@
-from datetime import datetime
-import json
-import uuid
-
 from django.contrib.auth import authenticate
-from rest_framework import status
-from rest_framework.decorators import api_view, parser_classes
-from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
+from django.contrib.auth.models import User
+from django.utils import timezone
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
+from rest_framework import status
 
+from .models import CampoFormulario, Cadastro, PerfilUsuario, FotoCadastro
 from .api import CampoSerializer, CadastroSerializer
-from .models import CampoFormulario, Cadastro, FotoCadastro
 
 
 def gerar_id_ponto():
-    agora = datetime.now()
-    sufixo = str(uuid.uuid4())[:4].upper()
-    return f"CEF-{agora.strftime('%Y%m%d-%H%M%S')}-{sufixo}"
+    agora = timezone.localtime()
+    return f'CEF-{agora.strftime("%Y%m%d-%H%M%S-%f")[:21]}'
 
 
-@api_view(["POST"])
-def login_api(request):
-    username = request.data.get("username")
-    password = request.data.get("password")
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def login_app(request):
+    username = request.data.get('username')
+    password = request.data.get('password')
+
+    if not username or not password:
+        return Response(
+            {'success': False, 'message': 'Usuário e senha são obrigatórios.'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
 
     user = authenticate(username=username, password=password)
 
-    if user is not None:
+    if not user:
         return Response(
-            {
-                "success": True,
-                "message": "Login realizado com sucesso.",
-                "user": {
-                    "id": user.id,
-                    "username": user.username,
-                    "is_staff": user.is_staff,
-                    "is_superuser": user.is_superuser,
-                },
-            },
-            status=status.HTTP_200_OK,
+            {'success': False, 'message': 'Usuário ou senha inválidos.'},
+            status=status.HTTP_401_UNAUTHORIZED
         )
 
-    return Response(
-        {
-            "success": False,
-            "message": "Usuário ou senha inválidos.",
-        },
-        status=status.HTTP_401_UNAUTHORIZED,
-    )
-
-
-@api_view(["GET"])
-def campos_api(request):
-    campos = CampoFormulario.objects.filter(ativo=True).order_by("ordem", "id")
-    serializer = CampoSerializer(campos, many=True)
-    return Response(
-        {
-            "success": True,
-            "results": serializer.data,
-        }
-    )
-
-
-@api_view(["GET"])
-def cadastros_api(request):
-    cadastros = Cadastro.objects.all().order_by("-criado_em")
-    serializer = CadastroSerializer(cadastros, many=True)
-    return Response(
-        {
-            "success": True,
-            "results": serializer.data,
-        }
-    )
-
-
-@api_view(["POST"])
-@parser_classes([MultiPartParser, FormParser, JSONParser])
-def cadastro_completo_api(request):
     try:
-        dados_extras = request.data.get("dados_extras", "{}")
-
-        if isinstance(dados_extras, str):
-            dados_extras = json.loads(dados_extras or "{}")
-
-        id_ponto = request.data.get("id_ponto") or gerar_id_ponto()
-
-        cadastro = Cadastro.objects.create(
-            id_ponto=id_ponto,
-            nome_cadastrador=request.data.get("nome_cadastrador", ""),
-            data_cadastro=request.data.get("data_cadastro"),
-            hora_cadastro=request.data.get("hora_cadastro"),
-            latitude=request.data.get("latitude") or None,
-            longitude=request.data.get("longitude") or None,
-            dados_extras=dados_extras,
-            status_sincronizacao=request.data.get("status_sincronizacao", "sincronizado"),
+        perfil = PerfilUsuario.objects.get(user=user)
+    except PerfilUsuario.DoesNotExist:
+        return Response(
+            {'success': False, 'message': 'Perfil do usuário não encontrado.'},
+            status=status.HTTP_404_NOT_FOUND
         )
 
-        fotos = request.FILES.getlist("fotos")
-        for foto in fotos[:5]:
-            FotoCadastro.objects.create(cadastro=cadastro, foto=foto)
+    if perfil.tipo_usuario != 'cadastrador_app' and perfil.tipo_usuario != 'admin_site':
+        return Response(
+            {'success': False, 'message': 'Usuário sem acesso ao app.'},
+            status=status.HTTP_403_FORBIDDEN
+        )
 
-        serializer = CadastroSerializer(cadastro)
+    if not perfil.ativo_no_app:
+        return Response(
+            {'success': False, 'message': 'Usuário sem acesso ao app.'},
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    return Response(
+        {
+            'success': True,
+            'username': user.username,
+            'nome_exibicao': perfil.nome_exibicao,
+            'user_id': user.id,
+            'pode_cadastrar': perfil.pode_cadastrar,
+            'pode_sincronizar': perfil.pode_sincronizar,
+        },
+        status=status.HTTP_200_OK
+    )
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def listar_campos(request):
+    campos = CampoFormulario.objects.filter(ativo=True).order_by('ordem', 'rotulo')
+    serializer = CampoSerializer(campos, many=True)
+    return Response(serializer.data)
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def listar_cadastros(request):
+    cadastros = Cadastro.objects.all().order_by('-data_cadastro', '-hora_cadastro')
+    serializer = CadastroSerializer(cadastros, many=True)
+    return Response(serializer.data)
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def criar_cadastro(request):
+    dados = request.data.copy()
+
+    username = dados.get('username')
+    if not username:
+        return Response(
+            {'success': False, 'message': 'O campo username é obrigatório.'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    try:
+        user = User.objects.get(username=username)
+    except User.DoesNotExist:
+        return Response(
+            {'success': False, 'message': 'Usuário informado não existe.'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    try:
+        perfil = PerfilUsuario.objects.get(user=user)
+    except PerfilUsuario.DoesNotExist:
+        return Response(
+            {'success': False, 'message': 'Perfil do usuário não encontrado.'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    if not perfil.pode_cadastrar:
+        return Response(
+            {'success': False, 'message': 'Usuário sem permissão para cadastrar.'},
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    if not dados.get('id_ponto'):
+        dados['id_ponto'] = gerar_id_ponto()
+
+    dados['usuario'] = user.id
+    dados['nome_cadastrador'] = perfil.nome_exibicao
+    dados['sistema_coordenadas'] = 'sirgas2000'
+
+    serializer = CadastroSerializer(data=dados)
+
+    if serializer.is_valid():
+        cadastro = serializer.save()
+
+        for i in range(1, 6):
+            arquivo = request.FILES.get(f'foto_{i}')
+            if arquivo:
+                FotoCadastro.objects.create(
+                    cadastro=cadastro,
+                    imagem=arquivo,
+                    ordem=i
+                )
 
         return Response(
             {
-                "success": True,
-                "message": "Cadastro salvo com sucesso.",
-                "data": serializer.data,
+                'success': True,
+                'message': 'Cadastro recebido com sucesso.',
+                'id': cadastro.id,
+                'id_ponto': cadastro.id_ponto,
+                'usuario': user.username,
+                'nome_cadastrador': perfil.nome_exibicao
             },
-            status=status.HTTP_201_CREATED,
+            status=status.HTTP_201_CREATED
         )
 
-    except Exception as e:
-        return Response(
-            {
-                "success": False,
-                "message": f"Erro ao salvar cadastro: {str(e)}",
-            },
-            status=status.HTTP_400_BAD_REQUEST,
-        )
+    return Response(
+        {
+            'success': False,
+            'errors': serializer.errors
+        },
+        status=status.HTTP_400_BAD_REQUEST
+    )
