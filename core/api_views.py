@@ -12,26 +12,16 @@ from .api import CampoSerializer, CadastroSerializer
 # =========================
 @api_view(['POST'])
 @permission_classes([AllowAny])
-def criar_cadastro(request):
-    serializer = CadastroSerializer(data=request.data)
-
-    if serializer.is_valid():
-        cadastro = serializer.save(
-            status_sincronizacao=request.data.get('status_sincronizacao', 'Sincronizado')
-        )
-
-        return Response({
-            'ok': True,
-            'mensagem': 'Cadastro salvo com sucesso',
-            'id': cadastro.id,
-            'id_ponto': cadastro.id_ponto
-        }, status=status.HTTP_201_CREATED)
+def login_app(request):
+    usuario = request.data.get('usuario')
+    senha = request.data.get('senha')
 
     return Response({
-        'ok': False,
-        'mensagem': 'Erro ao salvar cadastro',
-        'erros': serializer.errors
-    }, status=status.HTTP_400_BAD_REQUEST)
+        'ok': True,
+        'usuario': usuario,
+        'nome': usuario
+    })
+
 
 # =========================
 # LISTAR CAMPOS
@@ -56,27 +46,19 @@ def listar_cadastros(request):
 
 
 # =========================
-# CRIAR CADASTRO (COM FOTO)
+# CRIAR CADASTRO (COM FOTO - FORMA CORRETA)
 # =========================
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def criar_cadastro(request):
-    data = request.data.copy()
 
-    # 🔥 captura a foto enviada
-    foto = request.FILES.get('foto')
-
-    serializer = CadastroSerializer(data=data)
+    # 🔥 NÃO usar .copy() nem request.FILES manual
+    serializer = CadastroSerializer(data=request.data)
 
     if serializer.is_valid():
         cadastro = serializer.save(
-            status_sincronizacao=data.get('status_sincronizacao', 'Sincronizado')
+            status_sincronizacao=request.data.get('status_sincronizacao', 'Sincronizado')
         )
-
-        # 🔥 salva a foto se existir
-        if foto:
-            cadastro.foto = foto
-            cadastro.save()
 
         return Response({
             'ok': True,
