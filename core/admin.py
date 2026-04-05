@@ -6,17 +6,12 @@ from django.utils.dateparse import parse_date
 
 from openpyxl import Workbook
 import csv
-import json
 import simplekml
 
 from .models import Cadastro, CampoFormulario, OpcaoCampo
 
 
 def obter_cidade(cadastro):
-    """
-    Tenta achar a cidade dentro de dados_extras.
-    Ajustei para aceitar vários nomes comuns.
-    """
     dados = cadastro.dados_extras or {}
 
     chaves_possiveis = [
@@ -35,11 +30,44 @@ def obter_cidade(cadastro):
     return ''
 
 
+def obter_foto_nome(cadastro):
+    try:
+        if cadastro.foto:
+            return cadastro.foto.name
+    except Exception:
+        pass
+    return ''
+
+
+def obter_foto_url(cadastro):
+    try:
+        if cadastro.foto:
+            return cadastro.foto.url
+    except Exception:
+        pass
+    return ''
+
+
+def obter_todas_as_chaves_dados_extras(queryset):
+    chaves = set()
+
+    for cadastro in queryset:
+        dados = cadastro.dados_extras or {}
+        if isinstance(dados, dict):
+            for chave in dados.keys():
+                chaves.add(str(chave))
+
+    return sorted(chaves)
+
+
 def obter_linhas_exportacao(queryset):
+    chaves_extras = obter_todas_as_chaves_dados_extras(queryset)
     linhas = []
 
     for cadastro in queryset:
-        linhas.append({
+        dados = cadastro.dados_extras or {}
+
+        linha = {
             'id_ponto': cadastro.id_ponto,
             'nome_cadastrador': cadastro.nome_cadastrador,
             'data_cadastro': cadastro.data_cadastro.strftime('%d/%m/%Y') if cadastro.data_cadastro else '',
@@ -48,10 +76,16 @@ def obter_linhas_exportacao(queryset):
             'longitude': cadastro.longitude,
             'cidade': obter_cidade(cadastro),
             'status_sincronizacao': cadastro.status_sincronizacao,
-            'dados_extras': json.dumps(cadastro.dados_extras or {}, ensure_ascii=False),
-        })
+            'foto_nome': obter_foto_nome(cadastro),
+            'foto_url': obter_foto_url(cadastro),
+        }
 
-    return linhas
+        for chave in chaves_extras:
+            linha[chave] = dados.get(chave, '') if isinstance(dados, dict) else ''
+
+        linhas.append(linha)
+
+    return linhas, chaves_extras
 
 
 @admin.register(Cadastro)
@@ -163,7 +197,9 @@ class CadastroAdmin(admin.ModelAdmin):
         response.write('\ufeff')
         writer = csv.writer(response, delimiter=';')
 
-        writer.writerow([
+        linhas, chaves_extras = obter_linhas_exportacao(queryset)
+
+        cabecalho = [
             'ID Ponto',
             'Nome Cadastrador',
             'Data Cadastro',
@@ -172,11 +208,14 @@ class CadastroAdmin(admin.ModelAdmin):
             'Longitude',
             'Cidade',
             'Status Sincronização',
-            'Dados Extras',
-        ])
+        ]
+        cabecalho.extend(chaves_extras)
+        cabecalho.extend(['Foto Nome', 'Foto URL'])
 
-        for linha in obter_linhas_exportacao(queryset):
-            writer.writerow([
+        writer.writerow(cabecalho)
+
+        for linha in linhas:
+            row = [
                 linha['id_ponto'],
                 linha['nome_cadastrador'],
                 linha['data_cadastro'],
@@ -185,8 +224,17 @@ class CadastroAdmin(admin.ModelAdmin):
                 linha['longitude'],
                 linha['cidade'],
                 linha['status_sincronizacao'],
-                linha['dados_extras'],
+            ]
+
+            for chave in chaves_extras:
+                row.append(linha.get(chave, ''))
+
+            row.extend([
+                linha['foto_nome'],
+                linha['foto_url'],
             ])
+
+            writer.writerow(row)
 
         return response
 
@@ -195,7 +243,9 @@ class CadastroAdmin(admin.ModelAdmin):
         ws = wb.active
         ws.title = 'Cadastros'
 
-        ws.append([
+        linhas, chaves_extras = obter_linhas_exportacao(queryset)
+
+        cabecalho = [
             'ID Ponto',
             'Nome Cadastrador',
             'Data Cadastro',
@@ -204,11 +254,14 @@ class CadastroAdmin(admin.ModelAdmin):
             'Longitude',
             'Cidade',
             'Status Sincronização',
-            'Dados Extras',
-        ])
+        ]
+        cabecalho.extend(chaves_extras)
+        cabecalho.extend(['Foto Nome', 'Foto URL'])
 
-        for linha in obter_linhas_exportacao(queryset):
-            ws.append([
+        ws.append(cabecalho)
+
+        for linha in linhas:
+            row = [
                 linha['id_ponto'],
                 linha['nome_cadastrador'],
                 linha['data_cadastro'],
@@ -217,8 +270,17 @@ class CadastroAdmin(admin.ModelAdmin):
                 linha['longitude'],
                 linha['cidade'],
                 linha['status_sincronizacao'],
-                linha['dados_extras'],
+            ]
+
+            for chave in chaves_extras:
+                row.append(linha.get(chave, ''))
+
+            row.extend([
+                linha['foto_nome'],
+                linha['foto_url'],
             ])
+
+            ws.append(row)
 
         response = HttpResponse(
             content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
@@ -230,23 +292,30 @@ class CadastroAdmin(admin.ModelAdmin):
     def exportar_kml(self, queryset):
         kml = simplekml.Kml()
 
-        for cadastro in queryset:
-            if cadastro.longitude is None or cadastro.latitude is None:
+        linhas, chaves_extras = obter_linhas_exportacao(queryset)
+
+        for linha in linhas:
+            if linha['longitude'] in [None, ''] or linha['latitude'] in [None, '']:
                 continue
 
-            cidade = obter_cidade(cadastro)
             descricao = (
-                f"ID Ponto: {cadastro.id_ponto}\n"
-                f"Cadastrador: {cadastro.nome_cadastrador}\n"
-                f"Data: {cadastro.data_cadastro}\n"
-                f"Hora: {cadastro.hora_cadastro}\n"
-                f"Cidade: {cidade}\n"
-                f"Status: {cadastro.status_sincronizacao}"
+                f"ID Ponto: {linha['id_ponto']}\n"
+                f"Cadastrador: {linha['nome_cadastrador']}\n"
+                f"Data: {linha['data_cadastro']}\n"
+                f"Hora: {linha['hora_cadastro']}\n"
+                f"Cidade: {linha['cidade']}\n"
+                f"Status: {linha['status_sincronizacao']}\n"
             )
 
+            for chave in chaves_extras:
+                descricao += f"{chave}: {linha.get(chave, '')}\n"
+
+            descricao += f"Foto Nome: {linha['foto_nome']}\n"
+            descricao += f"Foto URL: {linha['foto_url']}\n"
+
             kml.newpoint(
-                name=cadastro.id_ponto,
-                coords=[(float(cadastro.longitude), float(cadastro.latitude))],
+                name=linha['id_ponto'],
+                coords=[(float(linha['longitude']), float(linha['latitude']))],
                 description=descricao,
             )
 
