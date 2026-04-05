@@ -16,11 +16,9 @@ urlpatterns = [
     path('api/', include('core.urls')),
 ]
 
-# Em desenvolvimento local
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
-# Em produção no Render, para teu caso atual
 urlpatterns += [
     re_path(
         r'^media/(?P<path>.*)$',

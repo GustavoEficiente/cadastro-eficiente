@@ -1,9 +1,8 @@
 from django.urls import path
-from .views import api_login, api_campos, api_cadastro, api_cadastros
+from .views import listar_campos, listar_cadastros, sincronizar_cadastro
 
 urlpatterns = [
-    path('login/', api_login),
-    path('campos/', api_campos),
-    path('cadastro/', api_cadastro),
-    path('cadastros/', api_cadastros),
+    path('campos/', listar_campos, name='listar_campos'),
+    path('cadastros/', listar_cadastros, name='listar_cadastros'),
+    path('sincronizar/', sincronizar_cadastro, name='sincronizar_cadastro'),
 ]
