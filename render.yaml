@@ -2,7 +2,7 @@ services:
   - type: web
     name: cadastro-eficiente
     env: python
-    plan: starter
+    plan: free
     buildCommand: "./build.sh"
     startCommand: "gunicorn backend.wsgi:application"
     envVars:
@@ -21,12 +21,8 @@ services:
       - key: CSRF_TRUSTED_ORIGINS
         value: "https://cadastro-eficiente.onrender.com"
       - key: MEDIA_ROOT
-        value: "/var/data/media"
-    disk:
-      name: media
-      mountPath: /var/data
-      sizeGB: 5
+        value: "/tmp/media"
 
 databases:
   - name: cadastro-eficiente-db
-    plan: starter
+    plan: free
