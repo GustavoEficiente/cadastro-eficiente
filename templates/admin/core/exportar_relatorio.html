@@ -1,0 +1,33 @@
+{% extends "admin/base_site.html" %}
+
+{% block content %}
+<h1>Exportar relatório de cadastros</h1>
+
+<form method="get" style="max-width: 700px;">
+    <div style="margin-bottom: 15px;">
+        <label for="nome_cadastrador"><strong>Nome do usuário</strong></label><br>
+        <input type="text" name="nome_cadastrador" id="nome_cadastrador" value="{{ filtros.nome_cadastrador }}" style="width: 100%; padding: 8px;">
+    </div>
+
+    <div style="margin-bottom: 15px;">
+        <label for="cidade"><strong>Cidade</strong></label><br>
+        <input type="text" name="cidade" id="cidade" value="{{ filtros.cidade }}" style="width: 100%; padding: 8px;">
+    </div>
+
+    <div style="margin-bottom: 15px;">
+        <label for="data_inicial"><strong>Data inicial</strong></label><br>
+        <input type="date" name="data_inicial" id="data_inicial" value="{{ filtros.data_inicial }}" style="padding: 8px;">
+    </div>
+
+    <div style="margin-bottom: 15px;">
+        <label for="data_final"><strong>Data final</strong></label><br>
+        <input type="date" name="data_final" id="data_final" value="{{ filtros.data_final }}" style="padding: 8px;">
+    </div>
+
+    <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 20px;">
+        <button type="submit" name="formato" value="excel" class="default">Baixar Excel</button>
+        <button type="submit" name="formato" value="csv" class="default">Baixar CSV</button>
+        <button type="submit" name="formato" value="kml" class="default">Baixar KML</button>
+    </div>
+</form>
+{% endblock %}
