@@ -6,6 +6,10 @@ from rest_framework import status
 from .models import CampoFormulario, Cadastro
 from .api import CampoSerializer, CadastroSerializer
 
+# 🔥 IMPORTS PARA FOTO
+import base64
+from django.core.files.base import ContentFile
+
 
 # =========================
 # LOGIN (COMPATÍVEL COM APK)
@@ -46,19 +50,44 @@ def listar_cadastros(request):
 
 
 # =========================
-# CRIAR CADASTRO (COM FOTO - FORMA CORRETA)
+# CRIAR CADASTRO (COM FOTO - FINAL)
 # =========================
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def criar_cadastro(request):
 
-    # 🔥 NÃO usar .copy() nem request.FILES manual
-    serializer = CadastroSerializer(data=request.data)
+    data = request.data.copy()
+
+    # 🔥 TENTA PEGAR FOTO COMO ARQUIVO
+    foto = request.FILES.get('foto')
+
+    # 🔥 SE NÃO VEIO ARQUIVO, TENTA BASE64
+    foto_base64 = data.get('foto')
+
+    if not foto and foto_base64:
+        try:
+            format, imgstr = foto_base64.split(';base64,')
+            ext = format.split('/')[-1]
+
+            foto = ContentFile(base64.b64decode(imgstr), name=f'foto.{ext}')
+        except Exception:
+            foto = None
+
+    # 🔥 REMOVE FOTO DO DATA PARA NÃO QUEBRAR O SERIALIZER
+    if 'foto' in data:
+        data.pop('foto')
+
+    serializer = CadastroSerializer(data=data)
 
     if serializer.is_valid():
         cadastro = serializer.save(
-            status_sincronizacao=request.data.get('status_sincronizacao', 'Sincronizado')
+            status_sincronizacao=data.get('status_sincronizacao', 'Sincronizado')
         )
+
+        # 🔥 SALVA FOTO SE EXISTIR
+        if foto:
+            cadastro.foto = foto
+            cadastro.save()
 
         return Response({
             'ok': True,
