@@ -3,6 +3,7 @@ from django.urls import path
 from django.shortcuts import render
 from django.http import HttpResponse
 from django.utils.dateparse import parse_date
+from django.utils.html import format_html
 
 from openpyxl import Workbook
 import csv
@@ -48,6 +49,15 @@ def obter_foto_url(cadastro):
     return ''
 
 
+def obter_foto_url_absoluta(cadastro):
+    try:
+        if cadastro.foto:
+            return f"https://cadastro-eficiente-1.onrender.com{cadastro.foto.url}"
+    except Exception:
+        pass
+    return ''
+
+
 def obter_todas_as_chaves_dados_extras(queryset):
     chaves = set()
 
@@ -77,7 +87,7 @@ def obter_linhas_exportacao(queryset):
             'cidade': obter_cidade(cadastro),
             'status_sincronizacao': cadastro.status_sincronizacao,
             'foto_nome': obter_foto_nome(cadastro),
-            'foto_url': obter_foto_url(cadastro),
+            'foto_url': obter_foto_url_absoluta(cadastro),
         }
 
         for chave in chaves_extras:
@@ -102,6 +112,41 @@ class CadastroAdmin(admin.ModelAdmin):
     search_fields = ('id_ponto', 'nome_cadastrador')
     list_filter = ('status_sincronizacao', 'data_cadastro')
     change_list_template = 'admin/core/cadastro/change_list.html'
+
+    readonly_fields = ('foto_link', 'foto_preview')
+
+    fields = (
+        'id_ponto',
+        'nome_cadastrador',
+        'data_cadastro',
+        'hora_cadastro',
+        'latitude',
+        'longitude',
+        'foto',
+        'foto_link',
+        'foto_preview',
+        'status_sincronizacao',
+        'dados_extras',
+    )
+
+    def foto_link(self, obj):
+        if obj and obj.foto:
+            return format_html('<a href="{}" target="_blank">Abrir foto</a>', obj.foto.url)
+        return 'Sem foto'
+
+    foto_link.short_description = 'Link da foto'
+
+    def foto_preview(self, obj):
+        if obj and obj.foto:
+            return format_html(
+                '<a href="{0}" target="_blank">'
+                '<img src="{0}" style="max-height:300px; border:1px solid #ccc; border-radius:8px;" />'
+                '</a>',
+                obj.foto.url
+            )
+        return 'Sem preview'
+
+    foto_preview.short_description = 'Preview da foto'
 
     def get_urls(self):
         urls = super().get_urls()
