@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 
 class ApiService {
-  static const String baseUrl = 'http://192.168.1.22:8000';
+  static const String baseUrl = 'https://cadastro-eficiente-1.onrender.com';
 
   static final Dio _dio = Dio(
     BaseOptions(
