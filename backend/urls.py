@@ -13,10 +13,10 @@ from core.api_views import (
 urlpatterns = [
     path('admin/', admin.site.urls),
 
-    path('api/login/', login_app, name='api_login'),
-    path('api/campos/', listar_campos, name='api_campos'),
-    path('api/cadastros/', listar_cadastros, name='api_cadastros'),
-    path('api/cadastros/criar/', criar_cadastro, name='api_cadastros_criar'),
+    path('api/login/', login_app),
+    path('api/campos/', listar_campos),
+    path('api/cadastros/', listar_cadastros),
+    path('api/cadastros/criar/', criar_cadastro),
 ]
 
 if settings.DEBUG:
