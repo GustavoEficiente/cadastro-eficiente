@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Cadastro, CampoFormulario, OpcaoCampo, FotoCadastro
+from .models import Cadastro, CampoFormulario, OpcaoCampo
 
 
 class OpcaoCampoSerializer(serializers.ModelSerializer):
@@ -9,7 +9,7 @@ class OpcaoCampoSerializer(serializers.ModelSerializer):
 
 
 class CampoSerializer(serializers.ModelSerializer):
-    opcoes = OpcaoCampoSerializer(many=True, read_only=True)
+    opcoes = serializers.SerializerMethodField()
 
     class Meta:
         model = CampoFormulario
@@ -25,37 +25,36 @@ class CampoSerializer(serializers.ModelSerializer):
             'opcoes',
         ]
 
-
-class FotoCadastroSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = FotoCadastro
-        fields = ['id', 'imagem', 'ordem', 'criado_em']
+    def get_opcoes(self, obj):
+        if not obj.usa_lista_opcoes:
+            return []
+        opcoes = obj.opcoes.filter(ativo=True).order_by('ordem', 'valor')
+        return OpcaoCampoSerializer(opcoes, many=True).data
 
 
 class CadastroSerializer(serializers.ModelSerializer):
-    cidade_nome = serializers.CharField(source='cidade.nome', read_only=True)
-    usuario_username = serializers.CharField(source='usuario.username', read_only=True)
-    fotos = FotoCadastroSerializer(many=True, read_only=True)
+    usuario = serializers.CharField(write_only=True, required=False, allow_blank=True)
 
     class Meta:
         model = Cadastro
         fields = [
             'id',
             'id_ponto',
-            'cidade',
-            'cidade_nome',
-            'usuario',
-            'usuario_username',
             'nome_cadastrador',
+            'usuario',
             'data_cadastro',
             'hora_cadastro',
             'latitude',
             'longitude',
-            'tipo_coordenada',
-            'sistema_coordenadas',
             'status_sincronizacao',
             'dados_extras',
-            'fotos',
             'criado_em',
             'atualizado_em',
         ]
+        read_only_fields = ['id', 'criado_em', 'atualizado_em']
+
+    def validate(self, attrs):
+        usuario = attrs.pop('usuario', None)
+        if usuario and not attrs.get('nome_cadastrador'):
+            attrs['nome_cadastrador'] = usuario
+        return attrs
