@@ -1,7 +1,8 @@
 from django.contrib import admin
-from django.urls import path
+from django.urls import path, re_path
 from django.conf import settings
 from django.conf.urls.static import static
+from django.views.static import serve
 
 from core.api_views import (
     login_app,
@@ -29,21 +30,24 @@ urlpatterns = [
     path('api/cadastros/', listar_cadastros),
 
     # =========================
-    # CADASTRO (ROTA CORRETA)
+    # CADASTRO
     # =========================
     path('api/cadastros/criar/', criar_cadastro),
 
     # =========================
-    # 🔥 ROTAS ALTERNATIVAS (COMPATIBILIDADE COM APP)
+    # ROTAS EXTRA (APP)
     # =========================
     path('api/cadastro/', criar_cadastro),
-    path('api/cadastros', criar_cadastro),      # sem barra
+    path('api/cadastros', criar_cadastro),
     path('api/sincronizar/', criar_cadastro),
     path('api/sincronizar', criar_cadastro),
 ]
 
-# =========================
-# MEDIA (FOTOS)
-# =========================
+# 🔥 LOCAL (já tinha)
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+
+# 🔥 PRODUÇÃO (ESSA É A CORREÇÃO)
+urlpatterns += [
+    re_path(r'^media/(?P<path>.*)$', serve, {'document_root': settings.MEDIA_ROOT}),
+]
