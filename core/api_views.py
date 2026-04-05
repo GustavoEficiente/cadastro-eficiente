@@ -8,7 +8,7 @@ from .api import CampoSerializer, CadastroSerializer
 
 
 # =========================
-# LOGIN (SIMPLES E COMPATÍVEL COM O APP)
+# LOGIN (COMPATÍVEL COM APK)
 # =========================
 @api_view(['POST'])
 @permission_classes([AllowAny])
@@ -16,7 +16,6 @@ def login_app(request):
     usuario = request.data.get('usuario')
     senha = request.data.get('senha')
 
-    # ⚠️ NÃO VALIDAMOS SENHA (igual estava antes funcionando)
     return Response({
         'ok': True,
         'usuario': usuario,
@@ -25,7 +24,7 @@ def login_app(request):
 
 
 # =========================
-# LISTAR CAMPOS DO FORMULÁRIO
+# LISTAR CAMPOS
 # =========================
 @api_view(['GET'])
 @permission_classes([AllowAny])
@@ -47,17 +46,27 @@ def listar_cadastros(request):
 
 
 # =========================
-# CRIAR CADASTRO (SINCRONIZAÇÃO)
+# CRIAR CADASTRO (COM FOTO)
 # =========================
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def criar_cadastro(request):
-    serializer = CadastroSerializer(data=request.data)
+    data = request.data.copy()
+
+    # 🔥 captura a foto enviada
+    foto = request.FILES.get('foto')
+
+    serializer = CadastroSerializer(data=data)
 
     if serializer.is_valid():
         cadastro = serializer.save(
-            status_sincronizacao=request.data.get('status_sincronizacao', 'Sincronizado')
+            status_sincronizacao=data.get('status_sincronizacao', 'Sincronizado')
         )
+
+        # 🔥 salva a foto se existir
+        if foto:
+            cadastro.foto = foto
+            cadastro.save()
 
         return Response({
             'ok': True,
