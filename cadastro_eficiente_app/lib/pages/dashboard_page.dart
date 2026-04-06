@@ -1,18 +1,20 @@
-import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../services/api_service.dart';
-import '../services/local_db_service.dart';
+import 'login_page.dart';
 
 class DashboardPage extends StatefulWidget {
-  final String username;
-  final String nomeExibicao;
+  final String? username;
+  final String? nomeExibicao;
 
   const DashboardPage({
     super.key,
-    required this.username,
-    required this.nomeExibicao,
+    this.username,
+    this.nomeExibicao,
   });
 
   @override
@@ -20,144 +22,243 @@ class DashboardPage extends StatefulWidget {
 }
 
 class _DashboardPageState extends State<DashboardPage> {
-  bool _sincronizando = false;
-  String _mensagem = '';
+  String baseUrl = '';
+  String username = '';
+  String nomeExibicao = '';
+  bool carregando = false;
+  File? fotoSelecionada;
 
-  Future<void> _sincronizarCadastros() async {
+  @override
+  void initState() {
+    super.initState();
+    carregarSessao();
+  }
+
+  Future<void> carregarSessao() async {
+    final prefs = await SharedPreferences.getInstance();
+
     setState(() {
-      _sincronizando = true;
-      _mensagem = '';
+      baseUrl = prefs.getString('base_url') ??
+          'https://cadastro-eficiente-1.onrender.com';
+
+      username = widget.username ??
+          prefs.getString('username') ??
+          '';
+
+      nomeExibicao = widget.nomeExibicao ??
+          prefs.getString('nome_exibicao') ??
+          username;
     });
+  }
+
+  Future<void> selecionarFoto() async {
+    try {
+      final picker = ImagePicker();
+
+      final XFile? imagem = await picker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 85,
+      );
+
+      if (imagem == null) return;
+
+      setState(() {
+        fotoSelecionada = File(imagem.path);
+      });
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Foto selecionada: ${imagem.path}')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erro ao selecionar foto: $e')),
+      );
+    }
+  }
+
+  String gerarIdPonto() {
+    final agora = DateTime.now();
+    final data =
+        '${agora.year.toString().padLeft(4, '0')}${agora.month.toString().padLeft(2, '0')}${agora.day.toString().padLeft(2, '0')}';
+    final hora =
+        '${agora.hour.toString().padLeft(2, '0')}${agora.minute.toString().padLeft(2, '0')}${agora.second.toString().padLeft(2, '0')}';
+    return 'CEF-$data-$hora';
+  }
+
+  Future<void> sincronizarTeste() async {
+    if (baseUrl.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Base URL não encontrada')),
+      );
+      return;
+    }
+
+    if (fotoSelecionada == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Selecione uma foto antes de enviar')),
+      );
+      return;
+    }
+
+    setState(() => carregando = true);
 
     try {
-      final pendentes = await LocalDbService.listarCadastrosPendentes();
+      final agora = DateTime.now();
 
-      if (pendentes.isEmpty) {
+      final payload = {
+        'id_ponto': gerarIdPonto(),
+        'nome_cadastrador': nomeExibicao.isEmpty ? 'TESTE1' : nomeExibicao,
+        'data_cadastro':
+            '${agora.year.toString().padLeft(4, '0')}-${agora.month.toString().padLeft(2, '0')}-${agora.day.toString().padLeft(2, '0')}',
+        'hora_cadastro':
+            '${agora.hour.toString().padLeft(2, '0')}:${agora.minute.toString().padLeft(2, '0')}:${agora.second.toString().padLeft(2, '0')}',
+        'latitude': '-3.8008650',
+        'longitude': '-38.5192489',
+        'status_sincronizacao': 'Sincronizado',
+        'dados_extras': {
+          'origem': 'flutter_app',
+          'usuario_login': username,
+          'nome_exibicao': nomeExibicao,
+          'foto_path': fotoSelecionada!.path,
+        },
+      };
+
+      final response = await ApiService.sincronizarCadastro(
+        payload,
+        baseUrl: baseUrl,
+        fotoPath: fotoSelecionada!.path,
+      );
+
+      if ((response['success'] == true) || (response['ok'] == true)) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Cadastro enviado com sucesso. ID ponto: ${response['id_ponto'] ?? ''}',
+            ),
+          ),
+        );
+
         setState(() {
-          _mensagem = 'Nenhum cadastro pendente para sincronizar';
-          _sincronizando = false;
+          fotoSelecionada = null;
         });
-        return;
+      } else {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              response['message']?.toString() ??
+                  response['mensagem']?.toString() ??
+                  'Erro ao sincronizar',
+            ),
+          ),
+        );
       }
-
-      int sincronizados = 0;
-
-      for (final cadastro in pendentes) {
-        Map<String, dynamic> dadosExtras = {};
-        List<String> fotos = [];
-
-        final dadosExtrasBruto = cadastro['dados_extras'];
-        if (dadosExtrasBruto != null &&
-            dadosExtrasBruto.toString().trim().isNotEmpty) {
-          try {
-            final convertido = jsonDecode(dadosExtrasBruto.toString());
-            if (convertido is Map<String, dynamic>) {
-              dadosExtras = convertido;
-            }
-          } catch (_) {}
-        }
-
-        final fotosBruto = cadastro['fotos_json'];
-        if (fotosBruto != null && fotosBruto.toString().trim().isNotEmpty) {
-          try {
-            final convertido = jsonDecode(fotosBruto.toString());
-            if (convertido is List) {
-              fotos = convertido.map((e) => e.toString()).toList();
-            }
-          } catch (_) {}
-        }
-
-        final payload = {
-          'id_ponto': cadastro['id_ponto']?.toString() ?? '',
-          'nome_cadastrador': cadastro['nome_cadastrador']?.toString() ?? '',
-          'data_cadastro': cadastro['data_cadastro']?.toString() ?? '',
-          'hora_cadastro': cadastro['hora_cadastro']?.toString() ?? '',
-          'latitude': cadastro['latitude']?.toString() ?? '',
-          'longitude': cadastro['longitude']?.toString() ?? '',
-          'status_sincronizacao': 'sincronizado',
-          'dados_extras': dadosExtras,
-          'fotos': fotos,
-        };
-
-        final response = await ApiService.sincronizarCadastro(payload);
-
-        if (response['ok'] == true) {
-          await LocalDbService.marcarComoSincronizado(cadastro['local_id']);
-          sincronizados++;
-        } else {
-          setState(() {
-            _mensagem =
-                'Falha ao sincronizar.\n${response['mensagem'] ?? ''}\n${response['erro'] ?? ''}\n${response['erros'] ?? ''}';
-          });
-          _sincronizando = false;
-          return;
-        }
-      }
-
-      setState(() {
-        _mensagem = sincronizados > 0
-            ? 'Serviço sincronizado com sucesso'
-            : 'Nenhum cadastro foi sincronizado';
-      });
     } catch (e) {
-      setState(() {
-        _mensagem = 'Erro ao sincronizar:\n$e';
-      });
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erro ao sincronizar: $e')),
+      );
     } finally {
       if (mounted) {
-        setState(() {
-          _sincronizando = false;
-        });
+        setState(() => carregando = false);
       }
     }
   }
 
+  Future<void> sair() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('username');
+    await prefs.remove('nome_exibicao');
+
+    if (!mounted) return;
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const LoginPage()),
+      (route) => false,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final nomeTela =
-        widget.nomeExibicao.isNotEmpty ? widget.nomeExibicao : widget.username;
+    final nomeArquivo =
+        fotoSelecionada?.path.split(Platform.pathSeparator).last;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Cadastro Eficiente'),
-        backgroundColor: const Color(0xFF0B1F3A),
+        title: const Text('Dashboard'),
+        centerTitle: true,
+        actions: [
+          IconButton(
+            onPressed: sair,
+            icon: const Icon(Icons.logout),
+          ),
+        ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              'Olá, $nomeTela',
-              style: const TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton(
-              onPressed: _sincronizando ? null : _sincronizarCadastros,
-              child: _sincronizando
-                  ? const SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Text('Sincronizar'),
-            ),
-            const SizedBox(height: 16),
-            if (_mensagem.isNotEmpty)
-              SelectableText(
-                _mensagem,
-                style: TextStyle(
-                  fontSize: 16,
-                  color: _mensagem.toLowerCase().contains('sucesso')
-                      ? Colors.green
-                      : Colors.red,
-                  fontWeight: FontWeight.w600,
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: ListView(
+            children: [
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Servidor: $baseUrl'),
+                      const SizedBox(height: 8),
+                      Text('Usuário: $username'),
+                      const SizedBox(height: 8),
+                      Text('Nome: $nomeExibicao'),
+                    ],
+                  ),
                 ),
               ),
-          ],
+              const SizedBox(height: 16),
+              ElevatedButton.icon(
+                onPressed: selecionarFoto,
+                icon: const Icon(Icons.photo),
+                label: const Text('Selecionar foto'),
+              ),
+              const SizedBox(height: 12),
+              if (fotoSelecionada != null)
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Foto selecionada: $nomeArquivo'),
+                    const SizedBox(height: 8),
+                    Text('Caminho: ${fotoSelecionada!.path}'),
+                    const SizedBox(height: 12),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.file(
+                        fotoSelecionada!,
+                        height: 220,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                  ],
+                )
+              else
+                const Text('Nenhuma foto selecionada.'),
+              const SizedBox(height: 24),
+              SizedBox(
+                height: 52,
+                child: ElevatedButton(
+                  onPressed: carregando ? null : sincronizarTeste,
+                  child: carregando
+                      ? const SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text('Enviar cadastro com foto'),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
