@@ -1,3 +1,5 @@
+import json
+
 from django.contrib.auth import authenticate
 
 from rest_framework.decorators import api_view, permission_classes, parser_classes
@@ -71,9 +73,13 @@ def listar_cadastros(request):
 def criar_cadastro(request):
     data = request.data.copy()
 
-    # Garante que o arquivo enviado pelo app entre no serializer
-    if 'foto' in request.FILES:
-        data['foto'] = request.FILES['foto']
+    # Converte dados_extras de string JSON para dict
+    dados_extras = data.get('dados_extras')
+    if isinstance(dados_extras, str):
+        try:
+            data['dados_extras'] = json.loads(dados_extras)
+        except Exception:
+            data['dados_extras'] = {}
 
     serializer = CadastroSerializer(data=data)
 
@@ -81,6 +87,11 @@ def criar_cadastro(request):
         cadastro = serializer.save(
             status_sincronizacao=request.data.get('status_sincronizacao', 'Sincronizado')
         )
+
+        # FORÇA salvar a foto enviada pelo app no campo do cadastro
+        foto_file = request.FILES.get('foto')
+        if foto_file:
+            cadastro.foto.save(foto_file.name, foto_file, save=True)
 
         return Response(
             {
@@ -92,6 +103,7 @@ def criar_cadastro(request):
                 'id_ponto': cadastro.id_ponto,
                 'tem_foto': bool(cadastro.foto),
                 'foto_url': cadastro.foto.url if cadastro.foto else None,
+                'request_files': list(request.FILES.keys()),
             },
             status=status.HTTP_201_CREATED
         )
