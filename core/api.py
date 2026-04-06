@@ -46,6 +46,7 @@ class CadastroSerializer(serializers.ModelSerializer):
             'hora_cadastro',
             'latitude',
             'longitude',
+            'foto',
             'status_sincronizacao',
             'dados_extras',
             'criado_em',

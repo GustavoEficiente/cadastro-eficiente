@@ -68,7 +68,7 @@ ScreenManager:
 
         TextInput:
             id: base_url
-            hint_text: "URL do servidor (ex.: http://127.0.0.1:8000)"
+            hint_text: "URL do servidor (ex.: https://cadastro-eficiente-1.onrender.com)"
             multiline: False
             text: root.base_url
             size_hint_y: None
@@ -301,10 +301,16 @@ class LoginScreen(Screen):
         try:
             result = login(base_url, username, password)
 
-            if result.get("success"):
+            if result.get("success") or result.get("ok"):
                 config = fetch_campos(base_url)
+
+                if isinstance(config, list):
+                    campos = config
+                else:
+                    campos = config.get("results", [])
+
                 save_user_session(base_url, username, password)
-                save_form_config(config.get("results", []))
+                save_form_config(campos)
                 self.status_text = "Login realizado com sucesso."
                 app = App.get_running_app()
                 app.update_home()
@@ -335,7 +341,11 @@ class HomeScreen(Screen):
 
         try:
             config = fetch_campos(sess["base_url"])
-            save_form_config(config.get("results", []))
+            if isinstance(config, list):
+                campos = config
+            else:
+                campos = config.get("results", [])
+            save_form_config(campos)
             self.sync_message = "Configuração atualizada com sucesso."
         except Exception as e:
             self.sync_message = f"Erro ao atualizar: {e}"
@@ -363,14 +373,14 @@ class HomeScreen(Screen):
                 "hora_cadastro": item["hora_cadastro"],
                 "latitude": item["latitude"],
                 "longitude": item["longitude"],
-                "status_sincronizacao": "sincronizado",
+                "status_sincronizacao": "Sincronizado",
                 "dados_extras": item["dados_extras"],
                 "fotos": item["fotos"],
             }
 
             try:
                 resposta = send_cadastro(sess["base_url"], payload)
-                if resposta.get("success"):
+                if resposta.get("ok") or resposta.get("success"):
                     mark_as_synced(item["id"])
                     enviados += 1
                 else:
