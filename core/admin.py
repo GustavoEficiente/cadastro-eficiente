@@ -1,19 +1,20 @@
+import json
+from django.conf import settings
 from django.contrib import admin, messages
-from django.urls import path
-from django.shortcuts import render
 from django.http import HttpResponse
+from django.urls import path
 from django.utils.dateparse import parse_date
 from django.utils.html import format_html
 
-from openpyxl import Workbook
-import csv
-import simplekml
+import pandas as pd
 
-from .models import Cadastro, CampoFormulario, OpcaoCampo
+from .models import Cadastro
 
 
 def obter_cidade(cadastro):
     dados = cadastro.dados_extras or {}
+    if not isinstance(dados, dict):
+        return ''
 
     chaves_possiveis = [
         'cidade',
@@ -40,19 +41,13 @@ def obter_foto_nome(cadastro):
     return ''
 
 
-def obter_foto_url(cadastro):
-    try:
-        if cadastro.foto:
-            return cadastro.foto.url
-    except Exception:
-        pass
-    return ''
-
-
 def obter_foto_url_absoluta(cadastro):
     try:
         if cadastro.foto:
-            return f"https://cadastro-eficiente-1.onrender.com{cadastro.foto.url}"
+            url = cadastro.foto.url
+            if url.startswith('http://') or url.startswith('https://'):
+                return url
+            return f"https://cadastro-eficiente-1.onrender.com{url}"
     except Exception:
         pass
     return ''
@@ -108,12 +103,13 @@ class CadastroAdmin(admin.ModelAdmin):
         'latitude',
         'longitude',
         'status_sincronizacao',
+        'foto_link',
     )
     search_fields = ('id_ponto', 'nome_cadastrador')
     list_filter = ('status_sincronizacao', 'data_cadastro')
     change_list_template = 'admin/core/cadastro/change_list.html'
 
-    readonly_fields = ('foto_link', 'foto_preview')
+    readonly_fields = ('foto_link_admin', 'foto_preview')
 
     fields = (
         'id_ponto',
@@ -123,7 +119,7 @@ class CadastroAdmin(admin.ModelAdmin):
         'latitude',
         'longitude',
         'foto',
-        'foto_link',
+        'foto_link_admin',
         'foto_preview',
         'status_sincronizacao',
         'dados_extras',
@@ -133,8 +129,13 @@ class CadastroAdmin(admin.ModelAdmin):
         if obj and obj.foto:
             return format_html('<a href="{}" target="_blank">Abrir foto</a>', obj.foto.url)
         return 'Sem foto'
-
     foto_link.short_description = 'Link da foto'
+
+    def foto_link_admin(self, obj):
+        if obj and obj.foto:
+            return format_html('<a href="{}" target="_blank">{}</a>', obj.foto.url, obj.foto.name)
+        return 'Sem foto'
+    foto_link_admin.short_description = 'Link da foto'
 
     def foto_preview(self, obj):
         if obj and obj.foto:
@@ -145,7 +146,6 @@ class CadastroAdmin(admin.ModelAdmin):
                 obj.foto.url
             )
         return 'Sem preview'
-
     foto_preview.short_description = 'Preview da foto'
 
     def get_urls(self):
@@ -186,198 +186,33 @@ class CadastroAdmin(admin.ModelAdmin):
                 cidade_cadastro = obter_cidade(cadastro)
                 if cidade.lower() in cidade_cadastro.lower():
                     ids_filtrados.append(cadastro.id)
-
             queryset = queryset.filter(id__in=ids_filtrados)
 
-        if formato:
-            if not queryset.exists():
-                self.message_user(
-                    request,
-                    'Nenhum cadastro encontrado com os filtros informados.',
-                    level=messages.WARNING
-                )
-                return render(
-                    request,
-                    'admin/core/exportar_relatorio.html',
-                    {
-                        **self.admin_site.each_context(request),
-                        'title': 'Exportar relatório de cadastros',
-                        'filtros': {
-                            'nome_cadastrador': nome_cadastrador,
-                            'cidade': cidade,
-                            'data_inicial': data_inicial,
-                            'data_final': data_final,
-                        }
-                    }
-                )
-
-            if formato == 'csv':
-                return self.exportar_csv(queryset)
-
-            if formato == 'excel':
-                return self.exportar_excel(queryset)
-
-            if formato == 'kml':
-                return self.exportar_kml(queryset)
-
-        return render(
-            request,
-            'admin/core/exportar_relatorio.html',
-            {
-                **self.admin_site.each_context(request),
-                'title': 'Exportar relatório de cadastros',
-                'filtros': {
-                    'nome_cadastrador': nome_cadastrador,
-                    'cidade': cidade,
-                    'data_inicial': data_inicial,
-                    'data_final': data_final,
-                }
-            }
-        )
-
-    def exportar_csv(self, queryset):
-        response = HttpResponse(content_type='text/csv; charset=utf-8')
-        response['Content-Disposition'] = 'attachment; filename="cadastros_filtrados.csv"'
-
-        response.write('\ufeff')
-        writer = csv.writer(response, delimiter=';')
-
-        linhas, chaves_extras = obter_linhas_exportacao(queryset)
-
-        cabecalho = [
-            'ID Ponto',
-            'Nome Cadastrador',
-            'Data Cadastro',
-            'Hora Cadastro',
-            'Latitude',
-            'Longitude',
-            'Cidade',
-            'Status Sincronização',
-        ]
-        cabecalho.extend(chaves_extras)
-        cabecalho.extend(['Foto Nome', 'Foto URL'])
-
-        writer.writerow(cabecalho)
-
-        for linha in linhas:
-            row = [
-                linha['id_ponto'],
-                linha['nome_cadastrador'],
-                linha['data_cadastro'],
-                linha['hora_cadastro'],
-                linha['latitude'],
-                linha['longitude'],
-                linha['cidade'],
-                linha['status_sincronizacao'],
-            ]
-
-            for chave in chaves_extras:
-                row.append(linha.get(chave, ''))
-
-            row.extend([
-                linha['foto_nome'],
-                linha['foto_url'],
-            ])
-
-            writer.writerow(row)
-
-        return response
-
-    def exportar_excel(self, queryset):
-        wb = Workbook()
-        ws = wb.active
-        ws.title = 'Cadastros'
-
-        linhas, chaves_extras = obter_linhas_exportacao(queryset)
-
-        cabecalho = [
-            'ID Ponto',
-            'Nome Cadastrador',
-            'Data Cadastro',
-            'Hora Cadastro',
-            'Latitude',
-            'Longitude',
-            'Cidade',
-            'Status Sincronização',
-        ]
-        cabecalho.extend(chaves_extras)
-        cabecalho.extend(['Foto Nome', 'Foto URL'])
-
-        ws.append(cabecalho)
-
-        for linha in linhas:
-            row = [
-                linha['id_ponto'],
-                linha['nome_cadastrador'],
-                linha['data_cadastro'],
-                linha['hora_cadastro'],
-                linha['latitude'],
-                linha['longitude'],
-                linha['cidade'],
-                linha['status_sincronizacao'],
-            ]
-
-            for chave in chaves_extras:
-                row.append(linha.get(chave, ''))
-
-            row.extend([
-                linha['foto_nome'],
-                linha['foto_url'],
-            ])
-
-            ws.append(row)
-
-        response = HttpResponse(
-            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-        )
-        response['Content-Disposition'] = 'attachment; filename="cadastros_filtrados.xlsx"'
-        wb.save(response)
-        return response
-
-    def exportar_kml(self, queryset):
-        kml = simplekml.Kml()
-
-        linhas, chaves_extras = obter_linhas_exportacao(queryset)
-
-        for linha in linhas:
-            if linha['longitude'] in [None, ''] or linha['latitude'] in [None, '']:
-                continue
-
-            descricao = (
-                f"ID Ponto: {linha['id_ponto']}\n"
-                f"Cadastrador: {linha['nome_cadastrador']}\n"
-                f"Data: {linha['data_cadastro']}\n"
-                f"Hora: {linha['hora_cadastro']}\n"
-                f"Cidade: {linha['cidade']}\n"
-                f"Status: {linha['status_sincronizacao']}\n"
+        if not queryset.exists():
+            self.message_user(
+                request,
+                'Nenhum cadastro encontrado com os filtros informados.',
+                level=messages.WARNING,
             )
+            return HttpResponse('Nenhum cadastro encontrado.', status=404)
 
-            for chave in chaves_extras:
-                descricao += f"{chave}: {linha.get(chave, '')}\n"
+        linhas, _ = obter_linhas_exportacao(queryset)
 
-            descricao += f"Foto Nome: {linha['foto_nome']}\n"
-            descricao += f"Foto URL: {linha['foto_url']}\n"
+        if formato == 'csv':
+            response = HttpResponse(content_type='text/csv; charset=utf-8')
+            response['Content-Disposition'] = 'attachment; filename="cadastros.csv"'
+            df = pd.DataFrame(linhas)
+            response.write(df.to_csv(index=False))
+            return response
 
-            kml.newpoint(
-                name=linha['id_ponto'],
-                coords=[(float(linha['longitude']), float(linha['latitude']))],
-                description=descricao,
+        if formato == 'excel':
+            response = HttpResponse(
+                content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
             )
+            response['Content-Disposition'] = 'attachment; filename="cadastros.xlsx"'
+            df = pd.DataFrame(linhas)
+            with pd.ExcelWriter(response, engine='openpyxl') as writer:
+                df.to_excel(writer, index=False, sheet_name='Cadastros')
+            return response
 
-        response = HttpResponse(content_type='application/vnd.google-earth.kml+xml')
-        response['Content-Disposition'] = 'attachment; filename="cadastros_filtrados.kml"'
-        response.write(kml.kml())
-        return response
-
-
-@admin.register(CampoFormulario)
-class CampoFormularioAdmin(admin.ModelAdmin):
-    list_display = ('rotulo', 'nome_interno', 'tipo_campo')
-    search_fields = ('rotulo', 'nome_interno')
-    list_filter = ('tipo_campo',)
-
-
-@admin.register(OpcaoCampo)
-class OpcaoCampoAdmin(admin.ModelAdmin):
-    list_display = ('campo', 'valor')
-    search_fields = ('valor',)
+        return HttpResponse('Formato inválido.', status=400)

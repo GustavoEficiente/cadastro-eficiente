@@ -3,8 +3,7 @@ from .models import Cadastro
 
 
 class CadastroSerializer(serializers.ModelSerializer):
-    # Campo que pode vir do app
-    usuario = serializers.CharField(write_only=True, required=False)
+    usuario = serializers.CharField(write_only=True, required=False, allow_blank=True)
 
     class Meta:
         model = Cadastro
@@ -17,6 +16,7 @@ class CadastroSerializer(serializers.ModelSerializer):
             'hora_cadastro',
             'latitude',
             'longitude',
+            'foto',
             'status_sincronizacao',
             'dados_extras',
             'criado_em',
@@ -26,10 +26,6 @@ class CadastroSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         usuario = attrs.pop('usuario', None)
-
-        # Se o app mandar "usuario" e não mandar "nome_cadastrador",
-        # salva o valor de usuario em nome_cadastrador
         if usuario and not attrs.get('nome_cadastrador'):
             attrs['nome_cadastrador'] = usuario
-
         return attrs
